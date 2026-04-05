@@ -6,6 +6,12 @@ let dbRef: IDBDatabase | null = null
 let dbPromise: Promise<IDBDatabase> | null = null
 let ensureStoreChain: Promise<void> = Promise.resolve()
 
+/**
+ * Caches an open database connection and wires version-change cleanup.
+ *
+ * @param db The database connection to cache.
+ * @returns The cached database connection.
+ */
 function cacheDB(db: IDBDatabase): IDBDatabase {
   db.onversionchange = () => {
     if (dbRef === db) {
@@ -22,6 +28,13 @@ function cacheDB(db: IDBDatabase): IDBDatabase {
   return db
 }
 
+/**
+ * Opens the backing IndexedDB database.
+ *
+ * @param version The database version to open.
+ * @param onUpgrade The callback invoked during an upgrade transaction.
+ * @returns A promise that fulfills with the open database.
+ */
 function openDB(
   version?: number,
   onUpgrade?: (db: IDBDatabase) => void
@@ -49,12 +62,20 @@ function openDB(
   })
 }
 
+/**
+ * Closes the cached database connection, if any.
+ */
 function closeDB(): void {
   if (dbRef) dbRef.close()
   dbRef = null
   dbPromise = null
 }
 
+/**
+ * Resolves the active database connection.
+ *
+ * @returns A promise that fulfills with the open database.
+ */
 export async function resolveDB(): Promise<IDBDatabase> {
   if (dbRef) return dbRef
 
@@ -68,6 +89,11 @@ export async function resolveDB(): Promise<IDBDatabase> {
   return dbPromise
 }
 
+/**
+ * Deletes the backing IndexedDB database.
+ *
+ * @returns A promise that fulfills when deletion completes.
+ */
 export async function destroyDB(): Promise<void> {
   closeDB()
 
@@ -89,6 +115,12 @@ export async function destroyDB(): Promise<void> {
   })
 }
 
+/**
+ * Ensures that the named object store exists.
+ *
+ * @param storeName The object store name to create if needed.
+ * @returns A promise that fulfills after the object store is available.
+ */
 export function assertStore(storeName: string): Promise<void> {
   const task = ensureStoreChain.then(async () => {
     const db = await resolveDB()
