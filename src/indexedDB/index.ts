@@ -39,9 +39,12 @@ function openDB(
     request.onsuccess = () => resolve(cacheDB(request.result))
     request.onerror = () =>
       reject(new KVStoreError('DATABASE_OPEN_FAILED', request.error?.message))
-    request.onblocked = () =>
+    request.onblocked = (event) =>
       reject(
-        new KVStoreError('DATABASE_OPEN_BLOCKED', 'IndexedDB open blocked')
+        new KVStoreError(
+          'DATABASE_OPEN_BLOCKED',
+          `IndexedDB open blocked for "${DB_NAME}" (oldVersion=${event.oldVersion}, newVersion=${event.newVersion})`
+        )
       )
   })
 }
@@ -76,11 +79,11 @@ export async function destroyDB(): Promise<void> {
       reject(
         new KVStoreError('DATABASE_DELETION_FAILED', request.error?.message)
       )
-    request.onblocked = () =>
+    request.onblocked = (event) =>
       reject(
         new KVStoreError(
           'DATABASE_DELETION_BLOCKED',
-          'IndexedDB delete blocked'
+          `IndexedDB delete blocked for "${DB_NAME}" (oldVersion=${event.oldVersion}, newVersion=${event.newVersion})`
         )
       )
   })
