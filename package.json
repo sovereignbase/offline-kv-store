@@ -3,8 +3,14 @@
   "license": "Apache-2.0",
   "name": "@sovereignbase/offline-kv-store",
   "version": "0.0.0",
-  "description": "",
+  "description": "Namespace-scoped key-value storage on top of IndexedDB with explicit error codes.",
   "keywords": [
+    "indexeddb",
+    "kv-store",
+    "key-value",
+    "offline",
+    "browser-storage",
+    "local-first",
     "typescript",
     "sovereignbase"
   ],
