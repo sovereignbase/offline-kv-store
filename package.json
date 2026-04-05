@@ -1,7 +1,7 @@
 {
   "type": "module",
   "license": "Apache-2.0",
-  "name": "@sovereignbase/package-name",
+  "name": "@sovereignbase/offline-kv-store",
   "version": "0.0.0",
   "description": "",
   "keywords": [
