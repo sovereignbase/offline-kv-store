@@ -39,19 +39,21 @@ TypeScript: bundled types / source TS / etc.
 
 “Returns copies for safety…”
 
-5. Installation
+## Installation
 
-Always the same triple:
-
-npm install <name>
-
+```sh
+npm install @sovereignbase/offline-kv-store
 # or
-
-pnpm add <name>
-
+pnpm add @sovereignbase/offline-kv-store
 # or
-
-yarn add <name>
+yarn add @sovereignbase/offline-kv-store
+# or
+bun add @sovereignbase/offline-kv-store
+# or
+deno add jsr:@sovereignbase/offline-kv-store
+# or
+vlt install jsr:@sovereignbase/offline-kv-store
+```
 
 6. Usage
 

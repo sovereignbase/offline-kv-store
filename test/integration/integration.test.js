@@ -1,77 +1,127 @@
+import 'fake-indexeddb/auto'
 import assert from 'node:assert/strict'
-import test from 'node:test' /** update to current package */
-import {
-  concat,
-  fromBase64String,
-  fromBase64UrlString,
-  fromBigInt,
-  fromHex,
-  fromJSON,
-  fromString,
-  fromZ85String,
-  toBase64String,
-  toBase64UrlString,
-  toBigInt,
-  toHex,
-  toJSON,
-  toString,
-  toZ85String,
-} from '../../dist/index.js'
+import test from 'node:test'
+import { KVStore, destroyDB, resolveDB } from '../../dist/index.js'
 
-test('integration: utf8 -> base64 -> utf8', () => {
-  const text = 'pipeline check'
-  const bytes = fromString(text)
-  const encoded = toBase64String(bytes)
-  const decoded = fromBase64String(encoded)
-  assert.equal(toString(decoded), text)
-})
+function createValue(id) {
+  return {
+    id,
+    label: `integration-${id}`,
+    nested: { index: id, parity: id % 2 === 0 ? 'even' : 'odd' },
+  }
+}
 
-test('integration: utf8 -> base64url -> utf8', () => {
-  const text = 'pipeline check'
-  const bytes = fromString(text)
-  const encoded = toBase64UrlString(bytes)
-  const decoded = fromBase64UrlString(encoded)
-  assert.equal(toString(decoded), text)
-})
+async function resetDatabase() {
+  try {
+    await destroyDB()
+  } catch {}
+}
 
-test('integration: utf8 -> hex -> utf8', () => {
-  const text = 'pipeline check'
-  const bytes = fromString(text)
-  const encoded = toHex(bytes)
-  const decoded = fromHex(encoded)
-  assert.equal(toString(decoded), text)
-})
+test('concurrent namespace initialization preserves both stores', async (t) => {
+  await resetDatabase()
+  t.after(resetDatabase)
 
-test('integration: bigint -> bytes -> hex -> bigint', () => {
-  const value = 0x1234567890abcdefn
-  const bytes = fromBigInt(value)
-  const encoded = toHex(bytes)
-  const decoded = fromHex(encoded)
-  assert.equal(toBigInt(decoded), value)
-})
+  const users = new KVStore('integration-users')
+  const sessions = new KVStore('integration-sessions')
 
-test('integration: json -> bytes -> base64url -> json', () => {
-  const value = { ok: true, list: [1, 2, 3] }
-  const bytes = fromJSON(value)
-  const encoded = toBase64UrlString(bytes)
-  const decoded = fromBase64UrlString(encoded)
-  assert.deepStrictEqual(toJSON(decoded), value)
-})
-
-test('integration: z85 -> hex -> bytes', () => {
-  const payload = Uint8Array.from([
-    0x86, 0x4f, 0xd2, 0x6f, 0xb5, 0x59, 0xf7, 0x5b,
+  await Promise.all([
+    users.put('u:1', createValue(1)),
+    sessions.put('s:1', createValue(2)),
   ])
-  const z85 = toZ85String(payload)
-  const hex = toHex(fromZ85String(z85))
-  assert.equal(hex, '864fd26fb559f75b')
+
+  assert.deepEqual(await users.get('u:1'), createValue(1))
+  assert.deepEqual(await sessions.get('s:1'), createValue(2))
+
+  const db = await resolveDB()
+  assert.equal(db.objectStoreNames.contains('integration-users'), true)
+  assert.equal(db.objectStoreNames.contains('integration-sessions'), true)
 })
 
-test('integration: concat + base64url', () => {
-  const left = fromString('left')
-  const right = fromString('right')
-  const merged = concat([left, right])
-  const encoded = toBase64UrlString(merged)
-  const decoded = fromBase64UrlString(encoded)
-  assert.equal(toString(decoded), 'leftright')
+test('database deletion resets persisted stores and data', async (t) => {
+  await resetDatabase()
+  t.after(resetDatabase)
+
+  const original = new KVStore('integration-original')
+  await original.put('entry', createValue(3))
+  await destroyDB()
+
+  const recreated = new KVStore('integration-recreated')
+  await recreated.put('fresh', createValue(4))
+
+  const db = await resolveDB()
+  assert.equal(db.objectStoreNames.contains('integration-original'), false)
+  assert.equal(db.objectStoreNames.contains('integration-recreated'), true)
+  assert.deepEqual(await recreated.get('fresh'), createValue(4))
+})
+
+test('data remains visible across new instances after prior instances are discarded', async (t) => {
+  await resetDatabase()
+  t.after(resetDatabase)
+
+  {
+    const writer = new KVStore('integration-persisted')
+    await writer.put('entry', createValue(5))
+  }
+
+  const reader = new KVStore('integration-persisted')
+  assert.equal(await reader.has('entry'), true)
+  assert.deepEqual(await reader.get('entry'), createValue(5))
+})
+
+test('clear only affects the targeted namespace during mixed workloads', async (t) => {
+  await resetDatabase()
+  t.after(resetDatabase)
+
+  const alpha = new KVStore('integration-alpha')
+  const beta = new KVStore('integration-beta')
+
+  await Promise.all([
+    alpha.put('a:1', createValue(6)),
+    alpha.put('a:2', createValue(7)),
+    beta.put('b:1', createValue(8)),
+  ])
+
+  await alpha.clear()
+
+  assert.equal(await alpha.has('a:1'), false)
+  assert.equal(await alpha.has('a:2'), false)
+  assert.deepEqual(await beta.get('b:1'), createValue(8))
+})
+
+test('version changes retire the cached connection and reopen cleanly', async (t) => {
+  await resetDatabase()
+  t.after(resetDatabase)
+
+  const store = new KVStore('integration-version-base')
+  await store.put('entry', createValue(9))
+
+  const original = await resolveDB()
+  const nextVersion = original.version + 1
+
+  await new Promise((resolve, reject) => {
+    const request = indexedDB.open('offline-kv-store', nextVersion)
+
+    request.onupgradeneeded = () => {
+      if (
+        !request.result.objectStoreNames.contains('integration-version-extra')
+      ) {
+        request.result.createObjectStore('integration-version-extra', {
+          keyPath: 'key',
+        })
+      }
+    }
+
+    request.onsuccess = () => {
+      request.result.close()
+      resolve()
+    }
+    request.onerror = () => reject(request.error)
+  })
+
+  const reopened = await resolveDB()
+  assert.notEqual(reopened, original)
+  assert.equal(
+    reopened.objectStoreNames.contains('integration-version-extra'),
+    true
+  )
 })
