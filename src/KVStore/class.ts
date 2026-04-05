@@ -4,31 +4,45 @@ import { isKey } from '../.helpers/index.js'
 import { assertStore, resolveDB } from '../indexedDB/index.js'
 export class KVStore<T extends Record<string, unknown>> {
   public readonly namespace: string
+  private readonly ready: Promise<void>
 
   constructor(namespace: string) {
     isKey(namespace, 'namespace')
     this.namespace = namespace
+    this.ready = assertStore(namespace)
   }
 
   async get(key: string): Promise<T | undefined> {
     isKey(key, 'key')
-    await assertStore(this.namespace)
+    await this.ready
     const db = await resolveDB()
 
     const row = await new Promise<Row<T> | undefined>((resolve, reject) => {
-      const tx = db.transaction(this.namespace, 'readonly')
-      const store = tx.objectStore(this.namespace)
-      const request = store.get(key)
+      try {
+        const tx = db.transaction(this.namespace, 'readonly')
+        const store = tx.objectStore(this.namespace)
+        const request = store.get(key)
 
-      tx.oncomplete = () => resolve(request.result)
-      tx.onerror = () =>
+        tx.oncomplete = () => resolve(request.result)
+        tx.onerror = () =>
+          reject(
+            new KVStoreError('INDEXED_DB_TRANSACTION_FAILED', tx.error?.message)
+          )
+        tx.onabort = () =>
+          reject(
+            new KVStoreError(
+              'INDEXED_DB_TRANSACTION_ABORTED',
+              tx.error?.message
+            )
+          )
+      } catch (error) {
         reject(
-          new KVStoreError('INDEXED_DB_TRANSACTION_FAILED', tx.error?.message)
+          new KVStoreError(
+            'INDEXED_DB_TRANSACTION_FAILED',
+            error instanceof Error ? error.message : undefined
+          )
         )
-      tx.onabort = () =>
-        reject(
-          new KVStoreError('INDEXED_DB_TRANSACTION_ABORTED', tx.error?.message)
-        )
+      }
     })
 
     return row?.value ?? undefined
@@ -36,93 +50,143 @@ export class KVStore<T extends Record<string, unknown>> {
 
   async has(key: string): Promise<boolean> {
     isKey(key, 'key')
-    await assertStore(this.namespace)
+    await this.ready
     const db = await resolveDB()
 
     return new Promise<boolean>((resolve, reject) => {
-      const tx = db.transaction(this.namespace, 'readonly')
-      const store = tx.objectStore(this.namespace)
-      const request =
-        typeof store.getKey === 'function' ? store.getKey(key) : store.get(key)
+      try {
+        const tx = db.transaction(this.namespace, 'readonly')
+        const store = tx.objectStore(this.namespace)
+        const request =
+          typeof store.getKey === 'function'
+            ? store.getKey(key)
+            : store.get(key)
 
-      tx.oncomplete = () => resolve(request.result !== undefined)
-      tx.onerror = () =>
+        tx.oncomplete = () => resolve(request.result !== undefined)
+        tx.onerror = () =>
+          reject(
+            new KVStoreError('INDEXED_DB_TRANSACTION_FAILED', tx.error?.message)
+          )
+        tx.onabort = () =>
+          reject(
+            new KVStoreError(
+              'INDEXED_DB_TRANSACTION_ABORTED',
+              tx.error?.message
+            )
+          )
+      } catch (error) {
         reject(
-          new KVStoreError('INDEXED_DB_TRANSACTION_FAILED', tx.error?.message)
+          new KVStoreError(
+            'INDEXED_DB_TRANSACTION_FAILED',
+            error instanceof Error ? error.message : undefined
+          )
         )
-      tx.onabort = () =>
-        reject(
-          new KVStoreError('INDEXED_DB_TRANSACTION_ABORTED', tx.error?.message)
-        )
+      }
     })
   }
 
   async put(key: string, value: T): Promise<void> {
     isKey(key, 'key')
-    await assertStore(this.namespace)
+    await this.ready
     const db = await resolveDB()
 
     await new Promise<void>((resolve, reject) => {
-      const tx = db.transaction(this.namespace, 'readwrite')
-      const store = tx.objectStore(this.namespace)
-      const row: Row<T> = { key, value }
+      try {
+        const tx = db.transaction(this.namespace, 'readwrite')
+        const store = tx.objectStore(this.namespace)
+        const row: Row<T> = { key, value }
 
-      store.put(row)
+        store.put(row)
 
-      tx.oncomplete = () => resolve()
-      tx.onerror = () =>
+        tx.oncomplete = () => resolve()
+        tx.onerror = () =>
+          reject(
+            new KVStoreError('INDEXED_DB_TRANSACTION_FAILED', tx.error?.message)
+          )
+        tx.onabort = () =>
+          reject(
+            new KVStoreError(
+              'INDEXED_DB_TRANSACTION_ABORTED',
+              tx.error?.message
+            )
+          )
+      } catch (error) {
         reject(
-          new KVStoreError('INDEXED_DB_TRANSACTION_FAILED', tx.error?.message)
+          new KVStoreError(
+            'INDEXED_DB_TRANSACTION_FAILED',
+            error instanceof Error ? error.message : undefined
+          )
         )
-      tx.onabort = () =>
-        reject(
-          new KVStoreError('INDEXED_DB_TRANSACTION_ABORTED', tx.error?.message)
-        )
+      }
     })
   }
 
   async delete(key: string): Promise<void> {
     isKey(key, 'key')
-    await assertStore(this.namespace)
+    await this.ready
     const db = await resolveDB()
 
     await new Promise<void>((resolve, reject) => {
-      const tx = db.transaction(this.namespace, 'readwrite')
-      const store = tx.objectStore(this.namespace)
+      try {
+        const tx = db.transaction(this.namespace, 'readwrite')
+        const store = tx.objectStore(this.namespace)
 
-      store.delete(key)
+        store.delete(key)
 
-      tx.oncomplete = () => resolve()
-      tx.onerror = () =>
+        tx.oncomplete = () => resolve()
+        tx.onerror = () =>
+          reject(
+            new KVStoreError('INDEXED_DB_TRANSACTION_FAILED', tx.error?.message)
+          )
+        tx.onabort = () =>
+          reject(
+            new KVStoreError(
+              'INDEXED_DB_TRANSACTION_ABORTED',
+              tx.error?.message
+            )
+          )
+      } catch (error) {
         reject(
-          new KVStoreError('INDEXED_DB_TRANSACTION_FAILED', tx.error?.message)
+          new KVStoreError(
+            'INDEXED_DB_TRANSACTION_FAILED',
+            error instanceof Error ? error.message : undefined
+          )
         )
-      tx.onabort = () =>
-        reject(
-          new KVStoreError('INDEXED_DB_TRANSACTION_ABORTED', tx.error?.message)
-        )
+      }
     })
   }
 
   async clear(): Promise<void> {
-    await assertStore(this.namespace)
+    await this.ready
     const db = await resolveDB()
 
     await new Promise<void>((resolve, reject) => {
-      const tx = db.transaction(this.namespace, 'readwrite')
-      const store = tx.objectStore(this.namespace)
+      try {
+        const tx = db.transaction(this.namespace, 'readwrite')
+        const store = tx.objectStore(this.namespace)
 
-      store.clear()
+        store.clear()
 
-      tx.oncomplete = () => resolve()
-      tx.onerror = () =>
+        tx.oncomplete = () => resolve()
+        tx.onerror = () =>
+          reject(
+            new KVStoreError('INDEXED_DB_TRANSACTION_FAILED', tx.error?.message)
+          )
+        tx.onabort = () =>
+          reject(
+            new KVStoreError(
+              'INDEXED_DB_TRANSACTION_ABORTED',
+              tx.error?.message
+            )
+          )
+      } catch (error) {
         reject(
-          new KVStoreError('INDEXED_DB_TRANSACTION_FAILED', tx.error?.message)
+          new KVStoreError(
+            'INDEXED_DB_TRANSACTION_FAILED',
+            error instanceof Error ? error.message : undefined
+          )
         )
-      tx.onabort = () =>
-        reject(
-          new KVStoreError('INDEXED_DB_TRANSACTION_ABORTED', tx.error?.message)
-        )
+      }
     })
   }
 }
