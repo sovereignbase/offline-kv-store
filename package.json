@@ -71,11 +71,7 @@
     "typescript": "^5.9.3",
     "wrangler": "^4.79.0"
   },
-  "dependencies": {
-    "@sovereignbase/bytecodec": "^1.5.1",
-    "@sovereignbase/cryptosuite": "^2.0.5",
-    "@sovereignbase/observed-remove-set": "^1.0.1"
-  },
+  "dependencies": {},
   "repository": {
     "type": "git",
     "url": "git+https://github.com/sovereignbase/offline-kv-store.git"
