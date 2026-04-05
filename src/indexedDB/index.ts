@@ -1,10 +1,12 @@
+import { KVStoreError } from '../.errors/class.js'
+
 const DB_NAME = 'offline-kv-store'
 
 let dbRef: IDBDatabase | null = null
 let dbPromise: Promise<IDBDatabase> | null = null
 let ensureStoreChain: Promise<void> = Promise.resolve()
 
-function cacheDb(db: IDBDatabase): IDBDatabase {
+function cacheDB(db: IDBDatabase): IDBDatabase {
   db.onversionchange = () => {
     if (dbRef === db) {
       dbRef = null
@@ -34,9 +36,17 @@ function openDB(
       onUpgrade?.(request.result)
     }
 
-    request.onsuccess = () => resolve(cacheDb(request.result))
-    request.onerror = () => reject(request.error)
-    request.onblocked = () => reject(new Error('IndexedDB open blocked'))
+    request.onsuccess = () => resolve(cacheDB(request.result))
+    request.onerror = () =>
+      reject(toKVStoreError('DATABASE_OPEN_FAILED', request.error))
+    request.onblocked = () =>
+      reject(
+        toKVStoreError(
+          'DATABASE_OPEN_BLOCKED',
+          request.error,
+          'IndexedDB open blocked'
+        )
+      )
   })
 }
 
@@ -66,8 +76,16 @@ export async function destroyDB(): Promise<void> {
     const request = indexedDB.deleteDatabase(DB_NAME)
 
     request.onsuccess = () => resolve()
-    request.onerror = () => reject(request.error)
-    request.onblocked = () => reject(new Error('IndexedDB delete blocked'))
+    request.onerror = () =>
+      reject(toKVStoreError('DATABASE_DELETION_FAILED', request.error))
+    request.onblocked = () =>
+      reject(
+        toKVStoreError(
+          'DATABASE_DELETION_BLOCKED',
+          request.error,
+          'IndexedDB delete blocked'
+        )
+      )
   })
 }
 

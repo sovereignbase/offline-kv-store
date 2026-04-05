@@ -10,19 +10,17 @@ export class KVStore<T extends Record<string, unknown>> {
     this.namespace = namespace
   }
 
-  async put(key: string, value: T): Promise<void> {
+  async get(key: string): Promise<T | undefined> {
     isKey(key, 'key')
     await assertStore(this.namespace)
     const db = await resolveDB()
 
-    await new Promise<void>((resolve, reject) => {
-      const tx = db.transaction(this.namespace, 'readwrite')
+    const row = await new Promise<Row<T> | undefined>((resolve, reject) => {
+      const tx = db.transaction(this.namespace, 'readonly')
       const store = tx.objectStore(this.namespace)
-      const row: Row<T> = { key, value }
+      const request = store.get(key)
 
-      store.put(row)
-
-      tx.oncomplete = () => resolve()
+      tx.oncomplete = () => resolve(request.result)
       tx.onerror = () =>
         reject(
           new KVStoreError('INDEXED_DB_TRANSACTION_FAILED', tx.error?.message)
@@ -32,6 +30,8 @@ export class KVStore<T extends Record<string, unknown>> {
           new KVStoreError('INDEXED_DB_TRANSACTION_ABORTED', tx.error?.message)
         )
     })
+
+    return row?.value ?? undefined
   }
 
   async has(key: string): Promise<boolean> {
@@ -57,24 +57,28 @@ export class KVStore<T extends Record<string, unknown>> {
     })
   }
 
-  async get(key: string): Promise<T | undefined> {
+  async put(key: string, value: T): Promise<void> {
     isKey(key, 'key')
     await assertStore(this.namespace)
     const db = await resolveDB()
 
-    const row = await new Promise<Row<T> | undefined>((resolve, reject) => {
-      const tx = db.transaction(this.namespace, 'readonly')
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(this.namespace, 'readwrite')
       const store = tx.objectStore(this.namespace)
-      const request = store.get(key)
+      const row: Row<T> = { key, value }
 
-      tx.oncomplete = () => resolve(request.result)
+      store.put(row)
+
+      tx.oncomplete = () => resolve()
       tx.onerror = () =>
-        new KVStoreError('INDEXED_DB_TRANSACTION_FAILED', tx.error?.message)
+        reject(
+          new KVStoreError('INDEXED_DB_TRANSACTION_FAILED', tx.error?.message)
+        )
       tx.onabort = () =>
-        new KVStoreError('INDEXED_DB_TRANSACTION_ABORTED', tx.error?.message)
+        reject(
+          new KVStoreError('INDEXED_DB_TRANSACTION_ABORTED', tx.error?.message)
+        )
     })
-
-    return row?.value ?? undefined
   }
 
   async delete(key: string): Promise<void> {
@@ -90,9 +94,13 @@ export class KVStore<T extends Record<string, unknown>> {
 
       tx.oncomplete = () => resolve()
       tx.onerror = () =>
-        new KVStoreError('INDEXED_DB_TRANSACTION_FAILED', tx.error?.message)
+        reject(
+          new KVStoreError('INDEXED_DB_TRANSACTION_FAILED', tx.error?.message)
+        )
       tx.onabort = () =>
-        new KVStoreError('INDEXED_DB_TRANSACTION_ABORTED', tx.error?.message)
+        reject(
+          new KVStoreError('INDEXED_DB_TRANSACTION_ABORTED', tx.error?.message)
+        )
     })
   }
 
