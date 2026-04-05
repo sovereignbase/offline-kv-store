@@ -1,12 +1,16 @@
-export type PackageNameErrorCode = 'EXAMPLE_ERROR_CODE'
+export type KVStoreErrorCode =
+  | 'DATABASE_DELETION_BLOCKED'
+  | 'INDEXED_DB_TRANSACTION_FAILED'
+  | 'INDEXED_DB_TRANSACTION_ABORTED'
+  | 'NAME_WAS_NOT_A_STRING'
 
-export class PackageNameError extends Error {
-  readonly code: PackageNameErrorCode
+export class KVStoreError extends Error {
+  readonly code: KVStoreErrorCode
 
-  constructor(code: PackageNameErrorCode, message?: string) {
+  constructor(code: KVStoreErrorCode, message?: string) {
     const detail = message ?? code
-    super(`{@z-base/package-name} ${detail}`)
+    super(`{@sovereignbase/offline-kv-store} ${detail}`)
     this.code = code
-    this.name = 'PackageNameError'
+    this.name = 'KVStoreError'
   }
 }
