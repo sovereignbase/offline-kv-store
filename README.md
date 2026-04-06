@@ -42,12 +42,12 @@ vlt install jsr:@sovereignbase/offline-kv-store
 ```ts
 import { KVStore } from '@sovereignbase/offline-kv-store'
 
-const settings = new KVStore<{ value: string }>('settings')
+const settings = new KVStore<string>('settings')
 
-await settings.put('theme', { value: 'dark' })
+await settings.put('theme', 'dark')
 
 const theme = await settings.get('theme')
-console.log(theme?.value) // "dark"
+console.log(theme) // "dark"
 
 console.log(await settings.has('theme')) // true
 
@@ -62,11 +62,27 @@ Each `KVStore` instance is bound to one namespace:
 ```ts
 import { KVStore } from '@sovereignbase/offline-kv-store'
 
-const profiles = new KVStore<{ name: string }>('profiles')
-const drafts = new KVStore<{ title: string }>('drafts')
+const profiles = new KVStore<{
+  name: string
+  email: string
+  verified: boolean
+}>('profiles')
+const drafts = new KVStore<{
+  title: string
+  body: string
+  updatedAt: string
+}>('drafts')
 
-await profiles.put('alice', { name: 'Alice' })
-await drafts.put('welcome', { title: 'Hello' })
+await profiles.put('alice', {
+  name: 'Alice',
+  email: 'alice@example.test',
+  verified: true,
+})
+await drafts.put('welcome', {
+  title: 'Hello',
+  body: 'Draft content goes here.',
+  updatedAt: new Date().toISOString(),
+})
 ```
 
 ### Direct database lifecycle

@@ -8,7 +8,7 @@ import { assertStore, resolveDB } from '../indexedDB/index.js'
  *
  * @typeParam T The stored value type.
  */
-export class KVStore<T extends Record<string, unknown>> {
+export class KVStore<T> {
   /**
    * The namespace backing this store instance.
    */
